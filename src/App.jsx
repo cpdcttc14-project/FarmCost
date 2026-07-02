@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   Bell,
@@ -97,6 +97,20 @@ function formatActivityDate(value) {
   return `${day}/${month}/${buddhistYear}`;
 }
 
+function parseActivityDateInput(value) {
+  const thaiDatePattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const thaiDateMatch = String(value || '').trim().match(thaiDatePattern);
+  if (thaiDateMatch) {
+    const [, day, month, year] = thaiDateMatch;
+    const westernYear = Number(year) > 2400 ? Number(year) - 543 : Number(year);
+    return `${westernYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value;
+
+  return getTodayInputValue();
+}
+
 function getTodayDisplayDate() {
   return formatActivityDate(getTodayInputValue());
 }
@@ -117,9 +131,71 @@ function getCurrentThaiTime() {
 const cropOptions = ['ข้าว', 'มันสำปะหลัง', 'อ้อย', 'ข้าวโพด', 'ถั่วเหลือง', 'อื่นๆ'];
 const productionUnitOptions = ['กิโลกรัม', 'ตัน', 'กรัม', 'ลิตร', 'อื่นๆ'];
 
+function createMaterialItem(item = {}) {
+  return {
+    id: item.id || `material-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: item.name || '',
+    amount: item.amount ?? '',
+  };
+}
+
+function createProductionItem(item = {}) {
+  return {
+    id: item.id || `production-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: item.name || '',
+    quantity: item.quantity ?? '',
+    unit: item.unit || '',
+    unitOther: item.unitOther || '',
+    income: item.income ?? '',
+  };
+}
+
 function getPlotLabel(plot) {
   if (!plot) return '';
   return `แปลงที่ ${plot.number} - ${plot.name}`;
+}
+
+function createActivityFormState(activity = null, plots = []) {
+  if (!activity) {
+    return {
+      date: getTodayInputValue(),
+      crop: cropOptions[0],
+      cropOther: '',
+      plotId: '',
+      plot: '',
+      category: 'บันทึกกิจกรรม',
+      task: 'บันทึกกิจกรรม',
+      labor: '',
+      rentCost: '',
+      materialItems: [createMaterialItem()],
+      productionItems: [createProductionItem()],
+      note: '',
+    };
+  }
+
+  const matchedPlot = plots.find((plot) => plot.id === activity.plotId || getPlotLabel(plot) === activity.plot);
+  const crop = activity.crop || matchedPlot?.crop || cropOptions[0];
+  const materialItems = Array.isArray(activity.materialItems) && activity.materialItems.length > 0
+    ? activity.materialItems.map(createMaterialItem)
+    : [createMaterialItem()];
+  const productionItems = Array.isArray(activity.productionItems) && activity.productionItems.length > 0
+    ? activity.productionItems.map(createProductionItem)
+    : [createProductionItem()];
+
+  return {
+    date: parseActivityDateInput(activity.date),
+    crop: cropOptions.includes(crop) ? crop : 'อื่นๆ',
+    cropOther: cropOptions.includes(crop) ? '' : crop,
+    plotId: matchedPlot?.id || activity.plotId || '',
+    plot: matchedPlot ? getPlotLabel(matchedPlot) : activity.plot || '',
+    category: 'บันทึกกิจกรรม',
+    task: activity.task || 'บันทึกกิจกรรม',
+    labor: activity.labor ?? '',
+    rentCost: activity.plotRentExpense ?? activity.rentCost ?? '',
+    materialItems,
+    productionItems,
+    note: activity.note || '',
+  };
 }
 
 function formatPlotArea(plotArea) {
@@ -968,6 +1044,17 @@ function DashboardStats({ activities }) {
   );
 }
 
+function OverviewAction({ onStartActivity }) {
+  return (
+    <section className="overview-action">
+      <button className="overview-start-button" onClick={onStartActivity} type="button">
+        <span aria-hidden="true">➕</span>
+        เพิ่มบันทึกกิจกรรม
+      </button>
+    </section>
+  );
+}
+
 function PlotCycleDashboard({ activities }) {
   const rows = getPlotCycleRows(activities);
 
@@ -1291,7 +1378,7 @@ function CategoryChip({ category }) {
   );
 }
 
-function ActivityTable({ activities, activeCategory, onClearActivities, onDeleteActivity, setActiveCategory }) {
+function ActivityTable({ activities, activeCategory, onClearActivities, onDeleteActivity, onEditActivity, setActiveCategory }) {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [activityPendingDelete, setActivityPendingDelete] = useState(null);
@@ -1361,6 +1448,16 @@ function ActivityTable({ activities, activeCategory, onClearActivities, onDelete
                         ดู
                       </button>
                       <button
+                        className="table-edit-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditActivity(activity);
+                        }}
+                        type="button"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
                         className="table-delete-button"
                         onClick={(event) => {
                           event.stopPropagation();
@@ -1410,6 +1507,10 @@ function ActivityTable({ activities, activeCategory, onClearActivities, onDelete
                   <div className="activity-card-actions">
                     <button className="activity-detail-action" onClick={() => setSelectedActivity(activity)} type="button">
                       ดูรายละเอียด
+                    </button>
+                    <button className="activity-edit-button" onClick={() => onEditActivity(activity)} type="button">
+                      <Pencil size={16} />
+                      แก้ไข
                     </button>
                     <button className="activity-delete-button" onClick={() => setActivityPendingDelete(activity)} type="button">
                       <Trash2 size={16} />
@@ -1519,6 +1620,28 @@ function ConfirmDeleteActivityModal({ activity, onCancel, onConfirm }) {
   );
 }
 
+function ValidationAlertModal({ title, description, onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="confirm-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
+        <div className="confirm-icon alert-icon">
+          <Tractor size={26} />
+        </div>
+        <div>
+          <span className="confirm-eyebrow alert-eyebrow">แจ้งเตือน</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        <div className="confirm-actions">
+          <button className="alert-action" onClick={onClose} type="button" autoFocus>
+            เข้าใจแล้ว
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ActivityDetailModal({ activity, onClose }) {
   const materials = Array.isArray(activity.materialItems) ? activity.materialItems : [];
   const outputs = productionItems(activity);
@@ -1611,26 +1734,14 @@ function ActivityDetailModal({ activity, onClose }) {
   );
 }
 
-function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
+function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditActivity, onDeletePlot, onSavePlot, onUpdateActivity }) {
   const dateInputRef = useRef(null);
   const plotCropSelectRef = useRef(null);
   const plotSelectRef = useRef(null);
   const productionUnitSelectRefs = useRef({});
-  const [form, setForm] = useState(() => ({
-    date: getTodayInputValue(),
-    crop: cropOptions[0],
-    cropOther: '',
-    plotId: '',
-    plot: '',
-    category: 'บันทึกกิจกรรม',
-    task: 'บันทึกกิจกรรม',
-    labor: '',
-    rentCost: '',
-    materialItems: [{ id: `material-${Date.now()}`, name: '', amount: '' }],
-    productionItems: [{ id: `production-${Date.now()}`, name: '', quantity: '', unit: productionUnitOptions[0], unitOther: '', income: '' }],
-    note: '',
-  }));
+  const [form, setForm] = useState(() => createActivityFormState(editingActivity, plots));
   const [plotPanelOpen, setPlotPanelOpen] = useState(false);
+  const [validationMessage, setValidationMessage] = useState(null);
   const [plotDraft, setPlotDraft] = useState({
     id: null,
     number: '',
@@ -1645,6 +1756,11 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
   const [saved, setSaved] = useState(false);
   const materialSum = form.materialItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const productionIncomeTotal = form.productionItems.reduce((sum, item) => sum + Number(item.income || 0), 0);
+
+  useEffect(() => {
+    setSaved(false);
+    setForm(createActivityFormState(editingActivity, plots));
+  }, [editingActivity]);
 
   function openDatePicker() {
     const input = dateInputRef.current;
@@ -1725,7 +1841,7 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
       ...current,
       productionItems: [
         ...current.productionItems,
-        { id: `production-${Date.now()}`, name: '', quantity: '', unit: productionUnitOptions[0], unitOther: '', income: '' },
+        createProductionItem(),
       ],
     }));
   }
@@ -1737,7 +1853,7 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
       productionItems:
         current.productionItems.length > 1
           ? current.productionItems.filter((item) => item.id !== id)
-          : [{ id: `production-${Date.now()}`, name: '', quantity: '', unit: productionUnitOptions[0], unitOther: '', income: '' }],
+          : [createProductionItem()],
     }));
   }
 
@@ -1816,7 +1932,7 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
 
     const crop = form.crop === 'อื่นๆ' ? form.cropOther.trim() : form.crop;
     const selectedPlot = plots.find((plot) => plot.id === form.plotId);
-    const plot = selectedPlot ? getPlotLabel(selectedPlot) : form.plot.trim();
+    const plot = selectedPlot ? getPlotLabel(selectedPlot) : '';
     const materialItems = form.materialItems
       .map((item) => ({
         id: item.id,
@@ -1836,18 +1952,30 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
       }))
       .filter((item) => item.name || item.quantity > 0 || item.income > 0);
 
-    if (!crop || !plot) return;
+    if (!plot) {
+      setValidationMessage({
+        title: 'กรุณาเลือกแปลงเพาะปลูก',
+        description:
+          plots.length > 0
+            ? 'โปรดเลือกแปลงเพาะปลูกที่ต้องการบันทึกกิจกรรมก่อนกดบันทึก'
+            : 'ยังไม่มีแปลงเพาะปลูกในบัญชีนี้ กรุณากด + เพิ่มแปลง และบันทึกแปลงก่อนบันทึกกิจกรรม',
+      });
+      plotSelectRef.current?.focus();
+      return;
+    }
 
-    onAddActivity({
+    if (!crop) return;
+
+    const activityPayload = {
       ...form,
       crop,
       plot,
       task: normalizedProductionItems[0]?.name || 'บันทึกกิจกรรม',
       category: 'บันทึกกิจกรรม',
       note: form.note.trim(),
-      id: Date.now(),
+      id: editingActivity?.id || Date.now(),
       date: formatActivityDate(form.date),
-      status: 'รอดำเนินการ',
+      status: editingActivity?.status || 'รอดำเนินการ',
       savedTime: getCurrentThaiTime(),
       labor: Number(form.labor || 0),
       material,
@@ -1858,18 +1986,17 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
       plotArea: selectedPlot ? {
         rai: selectedPlot.rai || 0,
         ngan: selectedPlot.ngan || 0,
-        wah: selectedPlot.wah || 0,
-      } : null,
-    });
-    setForm((current) => ({
-      ...current,
-      task: 'บันทึกกิจกรรม',
-      labor: '',
-      rentCost: '',
-      materialItems: [{ id: `material-${Date.now()}`, name: '', amount: '' }],
-      productionItems: [{ id: `production-${Date.now()}`, name: '', quantity: '', unit: productionUnitOptions[0], unitOther: '', income: '' }],
-      note: '',
-    }));
+          wah: selectedPlot.wah || 0,
+        } : null,
+    };
+
+    if (editingActivity) {
+      onUpdateActivity(activityPayload);
+    } else {
+      onAddActivity(activityPayload);
+    }
+
+    setForm(createActivityFormState(null, plots));
     setSaved(true);
   }
 
@@ -1877,6 +2004,14 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
     <aside className="panel entry-panel" id="entry-form">
       <span className="sheet-handle" aria-hidden="true" />
       <form onSubmit={handleSubmit}>
+        {editingActivity && (
+          <div className="edit-mode-banner">
+            <span>กำลังแก้ไขกิจกรรม</span>
+            <button onClick={onCancelEditActivity} type="button">
+              ยกเลิกแก้ไข
+            </button>
+          </div>
+        )}
         <label>
           <span>วันที่</span>
           <div className="input-shell date-shell" onClick={openDatePicker}>
@@ -2040,7 +2175,6 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
                   handleSelectPlot(event.target.value);
                   closePickerAfterSelect(event.currentTarget);
                 }}
-                required
               >
                 <option value="">เลือกแปลงเพาะปลูก</option>
                 {plots.map((plot) => (
@@ -2159,6 +2293,9 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
                       closePickerAfterSelect(event.currentTarget);
                     }}
                   >
+                    <option value="" disabled>
+                      ระบุหน่วย
+                    </option>
                     {productionUnitOptions.map((unit) => (
                       <option key={unit} value={unit}>
                         {unit}
@@ -2171,8 +2308,8 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
                   <input
                     value={item.unitOther}
                     onChange={(event) => updateProductionItem(item.id, 'unitOther', event.target.value)}
-                    className="text-input"
-                    placeholder="ระบุหน่วย"
+                    className="text-input production-other-unit-input"
+                    placeholder="อื่นๆ"
                     type="text"
                   />
                 )}
@@ -2209,10 +2346,17 @@ function QuickEntryForm({ plots, onAddActivity, onDeletePlot, onSavePlot }) {
 
         <button className="save-button" type="submit">
           <Save size={20} />
-          บันทึก
+          {editingActivity ? 'บันทึกการแก้ไข' : 'บันทึก'}
         </button>
-        {saved && <p className="success-message">บันทึกรายการใหม่แล้ว</p>}
+        {saved && <p className="success-message">{editingActivity ? 'บันทึกการแก้ไขแล้ว' : 'บันทึกรายการใหม่แล้ว'}</p>}
       </form>
+      {validationMessage && (
+        <ValidationAlertModal
+          title={validationMessage.title}
+          description={validationMessage.description}
+          onClose={() => setValidationMessage(null)}
+        />
+      )}
     </aside>
   );
 }
@@ -2396,7 +2540,7 @@ function BottomNav({ activeView, setActiveView }) {
   const mobileItems = [
     ['ข้อมูลภาพรวม', 'overview', Home],
     ['บันทึกกิจกรรม', 'activities', ListChecks],
-    ['ล่าสุด', 'activityHistory', ClipboardList],
+    ['กิจกรรมล่าสุด', 'activityHistory', ClipboardList],
   ];
 
   return (
@@ -2434,6 +2578,7 @@ export default function App() {
   });
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
   const [activeView, setActiveView] = useState('overview');
+  const [editingActivity, setEditingActivity] = useState(null);
   const [query, setQuery] = useState('');
 
   const visibleActivities = useMemo(() => {
@@ -2454,12 +2599,44 @@ export default function App() {
       saveCurrentState({ activities: nextActivities, plots });
       return nextActivities;
     });
+    setEditingActivity(null);
     setActiveCategory('ทั้งหมด');
     setActiveView('activityHistory');
   }
 
+  function updateActivity(updatedActivity) {
+    setActivities((current) => {
+      const nextActivities = current.map((activity) => (
+        activity.id === updatedActivity.id ? updatedActivity : activity
+      ));
+      saveCurrentState({ activities: nextActivities, plots });
+      return nextActivities;
+    });
+    setEditingActivity(null);
+    setActiveCategory('ทั้งหมด');
+    setActiveView('activityHistory');
+  }
+
+  function startNewActivity() {
+    setEditingActivity(null);
+    setActiveView('activities');
+  }
+
+  function editActivity(activity) {
+    setEditingActivity(activity);
+    setActiveView('activities');
+  }
+
+  function navigateToView(view) {
+    if (view === 'activities') {
+      setEditingActivity(null);
+    }
+    setActiveView(view);
+  }
+
   function clearActivities() {
     setActivities([]);
+    setEditingActivity(null);
     saveCurrentState({ activities: [], plots });
   }
 
@@ -2469,6 +2646,7 @@ export default function App() {
       saveCurrentState({ activities: nextActivities, plots });
       return nextActivities;
     });
+    setEditingActivity((current) => (current?.id === activityId ? null : current));
   }
 
   function savePlot(plot) {
@@ -2527,6 +2705,7 @@ export default function App() {
     setPlots(nextPlots);
     setActiveCategory('ทั้งหมด');
     setActiveView('overview');
+    setEditingActivity(null);
 
     if ((remoteActivities.length === 0 && localActivities.length > 0) || (remotePlots.length === 0 && localPlots.length > 0)) {
       saveUserState(nextSession, { activities: nextActivities, plots: nextPlots });
@@ -2550,6 +2729,7 @@ export default function App() {
       // Nothing else is needed when local storage is unavailable.
     }
     setActiveView('overview');
+    setEditingActivity(null);
     setSession(null);
     setActivities([]);
     setPlots([]);
@@ -2560,10 +2740,13 @@ export default function App() {
       return (
         <section className="form-page">
           <QuickEntryForm
+            editingActivity={editingActivity}
             plots={plots}
             onAddActivity={addActivity}
+            onCancelEditActivity={() => setEditingActivity(null)}
             onDeletePlot={deletePlot}
             onSavePlot={savePlot}
+            onUpdateActivity={updateActivity}
           />
         </section>
       );
@@ -2576,6 +2759,7 @@ export default function App() {
           activeCategory={activeCategory}
           onClearActivities={clearActivities}
           onDeleteActivity={deleteActivity}
+          onEditActivity={editActivity}
           setActiveCategory={setActiveCategory}
         />
       );
@@ -2605,6 +2789,7 @@ export default function App() {
 
     return (
       <>
+        <OverviewAction onStartActivity={startNewActivity} />
         <DashboardStats activities={activities} />
 
         <section className="analytics-grid" aria-label="กราฟสรุปต้นทุนและรายรับ">
@@ -2629,13 +2814,13 @@ export default function App() {
         activeView={activeView}
         currentUser={session.user}
         onLogout={handleLogout}
-        setActiveView={setActiveView}
+        setActiveView={navigateToView}
       />
-      <MobileHeader onLogout={handleLogout} setActiveView={setActiveView} />
+      <MobileHeader onLogout={handleLogout} setActiveView={navigateToView} />
       <main className="content">
         {renderActiveView()}
       </main>
-      <BottomNav activeView={activeView} setActiveView={setActiveView} />
+      <BottomNav activeView={activeView} setActiveView={navigateToView} />
     </div>
   );
 }

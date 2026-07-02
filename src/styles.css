@@ -514,6 +514,29 @@ button {
   white-space: nowrap;
 }
 
+.overview-action {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.overview-start-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius);
+  color: #ffffff;
+  background: linear-gradient(180deg, #148748, #08703c);
+  box-shadow: 0 12px 24px rgba(7, 112, 60, 0.18);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 650;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1450,8 +1473,10 @@ th {
   gap: 8px;
 }
 
+.table-edit-button,
 .table-delete-button,
 .activity-detail-action,
+.activity-edit-button,
 .activity-delete-button {
   display: inline-flex;
   align-items: center;
@@ -1472,6 +1497,13 @@ th {
   border-color: #bfdbfe;
   color: #1d4ed8;
   background: #eff6ff;
+}
+
+.table-edit-button,
+.activity-edit-button {
+  border-color: #bbf7d0;
+  color: var(--green-800);
+  background: #f0fdf4;
 }
 
 .category-chip,
@@ -1709,6 +1741,35 @@ select {
   font-weight: 500;
 }
 
+.edit-mode-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius);
+  color: var(--green-900);
+  background: #f0fdf4;
+}
+
+.edit-mode-banner span {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.edit-mode-banner button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #cfe0d6;
+  border-radius: 7px;
+  color: var(--green-800);
+  background: #ffffff;
+  font-family: inherit;
+  font-weight: 600;
+}
+
 .mini-action,
 .mini-save,
 .plot-row button {
@@ -1876,21 +1937,45 @@ select {
 
 .production-row {
   display: grid;
-  grid-template-columns: minmax(90px, 0.75fr) minmax(132px, 0.7fr) minmax(0, 1fr) 38px;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 0.48fr) 42px;
+  grid-template-areas:
+    "name name name"
+    "quantity unit unit"
+    "income income remove";
   gap: 8px;
   align-items: center;
 }
 
 .production-row.has-custom-unit {
-  grid-template-columns: minmax(90px, 0.75fr) minmax(132px, 0.7fr) minmax(0, 1fr) 38px;
+  grid-template-areas:
+    "name name name"
+    "quantity unit unit"
+    "custom custom custom"
+    "income income remove";
 }
 
 .production-name-input {
-  grid-column: 1 / -1;
+  grid-area: name;
 }
 
-.production-row.has-custom-unit input[placeholder="ระบุหน่วย"] {
-  grid-column: 2 / -2;
+.production-quantity-input {
+  grid-area: quantity;
+}
+
+.production-row .compact-select {
+  grid-area: unit;
+}
+
+.production-other-unit-input {
+  grid-area: custom;
+}
+
+.production-income-input {
+  grid-area: income;
+}
+
+.production-remove-button {
+  grid-area: remove;
 }
 
 .compact-select {
@@ -2069,10 +2154,19 @@ select {
   background: #fff0f2;
 }
 
+.confirm-icon.alert-icon {
+  color: var(--green-800);
+  background: var(--green-100);
+}
+
 .confirm-eyebrow {
   color: #c92838;
   font-size: 14px;
   font-weight: 700;
+}
+
+.confirm-eyebrow.alert-eyebrow {
+  color: var(--green-800);
 }
 
 .confirm-modal h2 {
@@ -2102,6 +2196,18 @@ select {
   border-radius: var(--radius);
   color: var(--ink);
   background: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.alert-action {
+  min-height: 46px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--radius);
+  color: #ffffff;
+  background: var(--green-800);
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -2486,6 +2592,16 @@ textarea {
     font-size: 18px;
   }
 
+  .overview-action {
+    margin-bottom: 14px;
+  }
+
+  .overview-start-button {
+    width: 100%;
+    min-height: 52px;
+    font-size: 17px;
+  }
+
   .kpi-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -2636,7 +2752,7 @@ textarea {
 
   .activity-card {
     display: grid;
-    grid-template-columns: 50px minmax(0, 1fr) auto;
+    grid-template-columns: 50px minmax(0, 1fr);
     column-gap: 12px;
     row-gap: 8px;
     align-items: center;
@@ -2652,7 +2768,7 @@ textarea {
   .activity-card-main {
     display: grid;
     grid-template-columns: 50px minmax(0, 1fr);
-    grid-column: 1 / 3;
+    grid-column: 1 / -1;
     gap: 12px;
     align-items: start;
     width: 100%;
@@ -2667,10 +2783,11 @@ textarea {
   .activity-card-actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    grid-column: 3;
-    grid-row: 1;
-    justify-self: end;
+    grid-column: 2;
+    grid-row: auto;
+    justify-self: start;
   }
 
   .activity-delete-button {
@@ -2697,11 +2814,13 @@ textarea {
 .activity-time-stack {
   display: grid;
   gap: 5px;
+  min-width: 0;
 }
 
 .activity-timestamp {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   margin: 0;
   color: #566174;
@@ -2822,16 +2941,12 @@ textarea {
   }
 
   .production-row {
-    grid-template-columns: minmax(62px, 0.72fr) minmax(94px, 0.8fr) minmax(86px, 1fr) 38px;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.8fr) 38px;
+    gap: 8px;
   }
 
   .production-row.has-custom-unit {
-    grid-template-columns: minmax(62px, 0.72fr) minmax(94px, 0.8fr) minmax(86px, 1fr) 38px;
-  }
-
-  .production-row.has-custom-unit input[placeholder="ระบุหน่วย"] {
-    grid-column: 2 / -2;
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.8fr) 38px;
   }
 
   .production-row button {
@@ -2887,11 +3002,11 @@ textarea {
 
   .bottom-nav button span {
     max-width: 100%;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .bottom-nav button.active {
@@ -2932,7 +3047,7 @@ textarea {
   }
 
   .activity-card {
-    grid-template-columns: 48px minmax(0, 1fr) auto;
+    grid-template-columns: 48px minmax(0, 1fr);
     column-gap: 8px;
     row-gap: 8px;
     align-items: center;
@@ -2940,7 +3055,7 @@ textarea {
 
   .activity-card-main {
     grid-template-columns: 48px minmax(0, 1fr);
-    grid-column: 1 / 3;
+    grid-column: 1 / -1;
   }
 
   .activity-cost {
@@ -2951,14 +3066,15 @@ textarea {
   }
 
   .activity-card-actions {
-    grid-column: 3;
-    grid-row: 1;
-    justify-self: end;
+    grid-column: 2;
+    grid-row: auto;
+    justify-self: start;
     align-self: center;
     padding-left: 0;
   }
 
   .activity-detail-action,
+  .activity-edit-button,
   .activity-delete-button {
     min-height: 38px;
   }
@@ -3019,7 +3135,7 @@ textarea {
 
   .production-row,
   .production-row.has-custom-unit {
-    grid-template-columns: minmax(50px, 0.72fr) minmax(82px, 0.85fr) minmax(72px, 1fr) 36px;
+    grid-template-columns: minmax(0, 1fr) minmax(112px, 0.82fr) 36px;
   }
 
   .production-row button {
