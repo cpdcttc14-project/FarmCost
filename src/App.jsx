@@ -220,7 +220,7 @@ const DEFAULT_SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzShwF8O
 const LOCAL_USERS_KEY = 'farmcost:localUsers:v3';
 const LOCAL_STATES_KEY = 'farmcost:localStates:v3';
 const farmFieldsImage = `${import.meta.env.BASE_URL}farm-fields.png`;
-const farmCostLogo = `${import.meta.env.BASE_URL}farmcost-logo.png`;
+const farmCostLogo = `${import.meta.env.BASE_URL}farmcost-logo.png?v=20260721`;
 
 function getStoredSession() {
   try {
