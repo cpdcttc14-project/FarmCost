@@ -1382,6 +1382,56 @@ button {
   align-items: center;
 }
 
+.activity-history-heading {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.activity-history-heading h2 {
+  margin-top: 6px;
+}
+
+.activity-history-controls {
+  display: flex;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.activity-plot-filter {
+  display: flex;
+  flex: 0 1 430px;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 430px);
+  margin: 0;
+}
+
+.activity-plot-filter > span {
+  flex: 0 0 auto;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.activity-filter-shell {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 280px;
+  min-height: 44px;
+  border-color: #cfe0d6;
+  background: #f8fbf9;
+}
+
+.activity-filter-shell select {
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .filter-tabs {
   display: flex;
   gap: 8px;
@@ -1407,9 +1457,17 @@ button {
   background: var(--green-800);
 }
 
+.activity-panel .filter-tabs {
+  display: none;
+}
+
 .table-wrap {
   overflow: auto;
   padding: 14px 18px 4px;
+}
+
+.activity-panel .table-wrap {
+  display: none;
 }
 
 table {
@@ -1545,7 +1603,9 @@ th {
 }
 
 .activity-list {
-  display: none;
+  display: grid;
+  gap: 10px;
+  padding: 18px 18px 0;
 }
 
 .activity-plot-group {
@@ -1558,6 +1618,108 @@ th {
   color: var(--green-900);
   font-size: 16px;
   font-weight: 650;
+}
+
+.activity-card {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 70px;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid #edf3f0;
+  color: var(--ink);
+  background: transparent;
+}
+
+.activity-card-main {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  grid-column: 1 / -1;
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+}
+
+.activity-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 2;
+  grid-row: auto;
+  justify-self: start;
+}
+
+.activity-card-actions .activity-detail-action,
+.activity-card-actions .activity-edit-button,
+.activity-card-actions .activity-delete-button {
+  min-height: 38px;
+}
+
+.activity-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border: 1px solid #cfe5d6;
+  border-radius: var(--radius);
+  color: var(--green-800);
+  background: #eff8f1;
+}
+
+.activity-card-main strong,
+.activity-card-main small {
+  display: block;
+}
+
+.activity-time-stack {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.activity-timestamp {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  color: #566174;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.activity-card-main .activity-timestamp {
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.activity-timestamp svg {
+  flex: 0 0 auto;
+  color: var(--green-800);
+}
+
+.activity-card-main strong {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.activity-card-main small {
+  margin-top: 4px;
+  color: #576170;
+  font-size: 14px;
 }
 
 .empty-list {
@@ -2231,6 +2393,37 @@ select {
   color: var(--muted);
 }
 
+.modal-title-stack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.modal-meta-line,
+.modal-plot-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  color: #4b5563;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.modal-meta-line svg,
+.modal-plot-line svg {
+  flex: 0 0 auto;
+  color: var(--green-800);
+}
+
+.modal-meta-line strong,
+.modal-plot-line strong {
+  color: #4b5563;
+  font-weight: 700;
+}
+
 .modal-heading h2 {
   margin: 4px 0;
   color: var(--ink);
@@ -2241,6 +2434,10 @@ select {
 .modal-heading p {
   margin: 5px 0 0;
   font-size: 15px;
+}
+
+.modal-heading .modal-plot-line {
+  margin: 0;
 }
 
 .detail-metrics {
@@ -3040,6 +3237,34 @@ textarea {
 
   .panel-heading {
     padding-inline: 16px;
+  }
+
+  .activity-history-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .activity-history-heading h2 {
+    margin-top: 0;
+  }
+
+  .activity-history-controls {
+    flex: none;
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .activity-plot-filter {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .activity-filter-shell {
+    width: 100%;
+    min-width: 0;
   }
 
   .line-chart {

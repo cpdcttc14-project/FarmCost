@@ -1378,12 +1378,41 @@ function CategoryChip({ category }) {
   );
 }
 
-function ActivityTable({ activities, activeCategory, onClearActivities, onDeleteActivity, onEditActivity, setActiveCategory }) {
+function ActivityTable({ activities, activeCategory, onClearActivities, onDeleteActivity, onEditActivity, plots, setActiveCategory }) {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [activityPendingDelete, setActivityPendingDelete] = useState(null);
+  const [activePlotFilter, setActivePlotFilter] = useState('all');
+  const plotOptions = useMemo(() => {
+    const optionMap = new Map();
+
+    plots.forEach((plot) => {
+      const label = getPlotLabel(plot);
+      if (label) optionMap.set(label, label);
+    });
+
+    activities.forEach((activity) => {
+      if (activity.plot) optionMap.set(activity.plot, activity.plot);
+    });
+
+    return Array.from(optionMap.values()).sort((first, second) => {
+      const secondNumber = getPlotNumberFromLabel(second);
+      const firstNumber = getPlotNumberFromLabel(first);
+      if (secondNumber !== firstNumber) return secondNumber - firstNumber;
+      return first.localeCompare(second, 'th');
+    });
+  }, [activities, plots]);
+
+  useEffect(() => {
+    if (activePlotFilter !== 'all' && !plotOptions.includes(activePlotFilter)) {
+      setActivePlotFilter('all');
+    }
+  }, [activePlotFilter, plotOptions]);
+
   const filteredActivities = activities.filter((item) => {
-    return activeCategory === 'ทั้งหมด' || item.category === activeCategory;
+    const matchesCategory = activeCategory === 'ทั้งหมด' || item.category === activeCategory;
+    const matchesPlot = activePlotFilter === 'all' || item.plot === activePlotFilter;
+    return matchesCategory && matchesPlot;
   });
   const groupedActivities = filteredActivities.reduce((groups, activity) => {
     const plot = activity.plot || 'ไม่ระบุแปลง';
@@ -1391,12 +1420,36 @@ function ActivityTable({ activities, activeCategory, onClearActivities, onDelete
     groups[plot].push(activity);
     return groups;
   }, {});
+  const emptyMessage = activePlotFilter === 'all'
+    ? 'ยังไม่มีกิจกรรมของผู้ใช้นี้'
+    : `ยังไม่มีกิจกรรมของ ${activePlotFilter}`;
 
   return (
     <article className="panel activity-panel">
-      <div className="panel-heading table-heading">
+      <div className="panel-heading table-heading activity-history-heading">
         <h2>กิจกรรมล่าสุด</h2>
-        <CategoryFilters activeCategory={activeCategory} setActiveCategory={setActiveCategory} />
+        <div className="activity-history-controls">
+          <label className="activity-plot-filter">
+            <span>แสดง</span>
+            <div className="input-shell select-shell activity-filter-shell">
+              <ListChecks size={18} />
+              <select
+                aria-label="เลือกแสดงกิจกรรมตามแปลงเพาะปลูก"
+                value={activePlotFilter}
+                onChange={(event) => setActivePlotFilter(event.target.value)}
+              >
+                <option value="all">กิจกรรมล่าสุดทั้งหมด</option>
+                {plotOptions.map((plot) => (
+                  <option key={plot} value={plot}>
+                    {plot}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={18} />
+            </div>
+          </label>
+          <CategoryFilters activeCategory={activeCategory} setActiveCategory={setActiveCategory} />
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -1474,7 +1527,7 @@ function ActivityTable({ activities, activeCategory, onClearActivities, onDelete
             ) : (
               <tr>
                 <td colSpan="12" className="empty-table-cell">
-                  ยังไม่มีกิจกรรมของผู้ใช้นี้
+                  {emptyMessage}
                 </td>
               </tr>
             )}
@@ -1522,11 +1575,11 @@ function ActivityTable({ activities, activeCategory, onClearActivities, onDelete
             </section>
           ))
         ) : (
-          <p className="empty-list">ยังไม่มีกิจกรรมของผู้ใช้นี้</p>
+          <p className="empty-list">{emptyMessage}</p>
         )}
       </div>
 
-      {filteredActivities.length > 0 && (
+      {activities.length > 0 && (
         <button className="danger-action clear-activities" onClick={() => setIsConfirmingClear(true)} type="button">
           <Trash2 size={18} />
           ลบกิจกรรมทั้งหมด
@@ -1651,9 +1704,17 @@ function ActivityDetailModal({ activity, onClose }) {
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <section className="activity-detail-modal" role="dialog" aria-modal="true" aria-label="รายละเอียดกิจกรรม" onClick={(event) => event.stopPropagation()}>
         <div className="modal-heading">
-          <div>
-            <span>{activity.date} • {activity.savedTime || '-'}</span>
-            <p>{activity.plot}</p>
+          <div className="modal-title-stack">
+            <span className="modal-meta-line">
+              <CalendarDays size={16} />
+              <strong>{activity.date}</strong>
+              <Clock size={16} />
+              <strong>{activity.savedTime || '-'}</strong>
+            </span>
+            <p className="modal-plot-line">
+              <Tractor size={16} />
+              <strong>{activity.plot}</strong>
+            </p>
           </div>
           <button className="icon-button" onClick={onClose} type="button" aria-label="ปิดรายละเอียด">
             <X size={22} />
@@ -1666,7 +1727,7 @@ function ActivityDetailModal({ activity, onClose }) {
             <strong className="metric-expense">{decimalBaht.format(activity.labor || 0)} บาท</strong>
           </div>
           <div>
-            <span>ค่าวัสดุ</span>
+            <span>ค่าใช้จ่ายทั้งหมด</span>
             <strong className="metric-expense">{decimalBaht.format(materialTotal(activity))} บาท</strong>
           </div>
           <div>
@@ -1692,18 +1753,18 @@ function ActivityDetailModal({ activity, onClose }) {
             </dl>
           </div>
           <div>
-            <h3>รายการวัสดุ</h3>
+            <h3>รายการค่าใช้จ่าย</h3>
             {materials.length > 0 ? (
               <ul className="detail-list">
                 {materials.map((item) => (
                   <li key={item.id || item.name}>
-                    <span>{item.name || 'ไม่ระบุชื่อวัสดุ'}</span>
+                    <span>{item.name || 'ไม่ระบุชื่อค่าใช้จ่าย'}</span>
                     <strong>{decimalBaht.format(item.amount || 0)} บาท</strong>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="detail-empty">ไม่มีรายการวัสดุ</p>
+              <p className="detail-empty">ไม่มีรายการค่าใช้จ่าย</p>
             )}
           </div>
           <div>
@@ -2212,10 +2273,10 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
 
         <div className="materials-editor">
           <div className="materials-heading">
-            <span>รายการค่าวัสดุ</span>
+            <span>รายการค่าใช้จ่าย</span>
             <button className="mini-action" onClick={addMaterialItem} type="button">
               <Plus size={17} />
-              เพิ่มวัสดุ
+              เพิ่มค่าใช้จ่าย
             </button>
           </div>
           <div className="materials-list">
@@ -2243,7 +2304,7 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
             ))}
           </div>
           <div className="material-total material-cost-total">
-            <span>รวมค่าวัสดุ</span>
+            <span>รวมค่าใช้จ่ายทั้งสิ้น</span>
             <strong>{decimalBaht.format(materialSum)} บาท</strong>
           </div>
         </div>
@@ -2760,6 +2821,7 @@ export default function App() {
           onClearActivities={clearActivities}
           onDeleteActivity={deleteActivity}
           onEditActivity={editActivity}
+          plots={plots}
           setActiveCategory={setActiveCategory}
         />
       );
