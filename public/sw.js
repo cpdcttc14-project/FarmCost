@@ -1,4 +1,4 @@
-const CACHE_NAME = 'farmcost-pwa-v1';
+const CACHE_NAME = 'farmcost-pwa-v4';
 const APP_SHELL = [
   './',
   './index.html',
