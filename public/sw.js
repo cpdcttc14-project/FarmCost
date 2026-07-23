@@ -1,10 +1,10 @@
-const CACHE_NAME = 'farmcost-pwa-v15';
+const CACHE_NAME = 'farmcost-pwa-v23';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './assets/index-B5pVU41-.js',
-  './assets/index-DGCm5-9w.css',
+  './assets/index-HVPA1ma7.js',
+  './assets/index-Be0jT1zY.css',
   './farmcost-logo.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
