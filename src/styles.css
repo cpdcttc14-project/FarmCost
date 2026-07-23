@@ -132,6 +132,7 @@ button {
   border-radius: 7px;
   color: #4f5b69;
   background: transparent;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -188,6 +189,97 @@ button {
 .settings-form input:focus {
   border-color: #2f7de1;
   box-shadow: 0 0 0 3px rgba(47, 125, 225, 0.13);
+}
+
+.province-field {
+  position: relative;
+}
+
+.province-select {
+  position: relative;
+}
+
+.province-select-button {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid #d9e0dd;
+  border-radius: var(--radius);
+  color: #2d3747;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  outline: 0;
+}
+
+.province-select-button:focus {
+  border-color: #2f7de1;
+  box-shadow: 0 0 0 3px rgba(47, 125, 225, 0.13);
+}
+
+.province-select-button .placeholder {
+  color: #7b8794;
+  font-weight: 500;
+}
+
+.province-select-button > span {
+  color: #2d3747;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.province-select-button > span.placeholder {
+  color: #7b8794;
+  font-weight: 500;
+}
+
+.province-select-button svg {
+  flex: 0 0 auto;
+  color: #223042;
+}
+
+.province-options {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: min(432px, calc(100vh - 150px));
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid #d9e0dd;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 36px rgba(16, 24, 40, 0.16);
+}
+
+.province-option {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  color: #223042;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.province-option:hover,
+.province-option:focus,
+.province-option.active {
+  color: #076b3a;
+  background: #eaf6ef;
+  outline: 0;
 }
 
 .login-note {

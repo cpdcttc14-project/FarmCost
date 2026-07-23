@@ -224,7 +224,86 @@ const LOCAL_USERS_KEY = 'farmcost:localUsers:v3';
 const LOCAL_STATES_KEY = 'farmcost:localStates:v3';
 const PENDING_SYNC_KEY = 'farmcost:pendingSync:v1';
 const farmFieldsImage = `${import.meta.env.BASE_URL}farm-fields.png`;
-const farmCostLogo = `${import.meta.env.BASE_URL}farmcost-logo.png?v=20260721`;
+const farmCostLogo = `${import.meta.env.BASE_URL}farmcost-logo.png`;
+const thaiProvinces = [
+  'กรุงเทพมหานคร',
+  'กระบี่',
+  'กาญจนบุรี',
+  'กาฬสินธุ์',
+  'กำแพงเพชร',
+  'ขอนแก่น',
+  'จันทบุรี',
+  'ฉะเชิงเทรา',
+  'ชลบุรี',
+  'ชัยนาท',
+  'ชัยภูมิ',
+  'ชุมพร',
+  'เชียงราย',
+  'เชียงใหม่',
+  'ตรัง',
+  'ตราด',
+  'ตาก',
+  'นครนายก',
+  'นครปฐม',
+  'นครพนม',
+  'นครราชสีมา',
+  'นครศรีธรรมราช',
+  'นครสวรรค์',
+  'นนทบุรี',
+  'นราธิวาส',
+  'น่าน',
+  'บึงกาฬ',
+  'บุรีรัมย์',
+  'ปทุมธานี',
+  'ประจวบคีรีขันธ์',
+  'ปราจีนบุรี',
+  'ปัตตานี',
+  'พระนครศรีอยุธยา',
+  'พะเยา',
+  'พังงา',
+  'พัทลุง',
+  'พิจิตร',
+  'พิษณุโลก',
+  'เพชรบุรี',
+  'เพชรบูรณ์',
+  'แพร่',
+  'ภูเก็ต',
+  'มหาสารคาม',
+  'มุกดาหาร',
+  'แม่ฮ่องสอน',
+  'ยโสธร',
+  'ยะลา',
+  'ร้อยเอ็ด',
+  'ระนอง',
+  'ระยอง',
+  'ราชบุรี',
+  'ลพบุรี',
+  'ลำปาง',
+  'ลำพูน',
+  'เลย',
+  'ศรีสะเกษ',
+  'สกลนคร',
+  'สงขลา',
+  'สตูล',
+  'สมุทรปราการ',
+  'สมุทรสงคราม',
+  'สมุทรสาคร',
+  'สระแก้ว',
+  'สระบุรี',
+  'สิงห์บุรี',
+  'สุโขทัย',
+  'สุพรรณบุรี',
+  'สุราษฎร์ธานี',
+  'สุรินทร์',
+  'หนองคาย',
+  'หนองบัวลำภู',
+  'อ่างทอง',
+  'อำนาจเจริญ',
+  'อุดรธานี',
+  'อุตรดิตถ์',
+  'อุทัยธานี',
+  'อุบลราชธานี',
+];
 
 function getStoredSession() {
   try {
@@ -414,10 +493,6 @@ function userFriendlyAuthMessage(result, mode) {
       return 'ไม่พบบัญชีของเบอร์นี้ กรุณาสมัครสมาชิกก่อน หรือใช้เบอร์ที่เคยสมัครไว้';
     }
 
-    if (normalized.includes('wrong') || normalized.includes('password') || normalized.includes('pin')) {
-      return 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง';
-    }
-
     if (normalized.includes('inactive')) {
       return 'บัญชีนี้ยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
     }
@@ -432,17 +507,6 @@ function userFriendlyAuthMessage(result, mode) {
 
 function createUserId() {
   return window.crypto?.randomUUID?.() || `user-${Date.now()}`;
-}
-
-async function hashSecret(value) {
-  const cleanValue = value.trim();
-  if (window.crypto?.subtle && window.TextEncoder) {
-    const bytes = new TextEncoder().encode(`farmcost:${cleanValue}`);
-    const digest = await window.crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-  }
-
-  return window.btoa(unescape(encodeURIComponent(cleanValue)));
 }
 
 function requestJsonp(endpoint, params) {
@@ -564,12 +628,13 @@ async function callLocalMembershipApi(action, payload) {
       id: createUserId(),
       name: payload.name,
       phone,
-      farmName: payload.farmName,
-      role: payload.role,
+      farmName: '',
+      role: payload.role || 'ผู้ใช้งานฟาร์ม',
+      province: payload.province,
       createdAt: new Date().toISOString(),
     };
 
-    users[phone] = { ...user, pinHash: payload.pinHash };
+    users[phone] = user;
     states[user.id] = createDefaultUserState();
     setLocalCollection(LOCAL_USERS_KEY, users);
     setLocalCollection(LOCAL_STATES_KEY, states);
@@ -585,8 +650,8 @@ async function callLocalMembershipApi(action, payload) {
 
   if (action === 'login') {
     const record = users[phone];
-    if (!record || record.pinHash !== payload.pinHash) {
-      return { ok: false, message: 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง' };
+    if (!record) {
+      return { ok: false, message: 'ไม่พบบัญชีของเบอร์นี้ กรุณาสมัครสมาชิกก่อน หรือใช้เบอร์ที่เคยสมัครไว้' };
     }
 
     const { pinHash, ...user } = record;
@@ -882,7 +947,7 @@ function Sidebar({ activeView, currentUser, onLogout, setActiveView }) {
         </span>
         <span>
           <strong>{currentUser.name}</strong>
-          <small>{currentUser.farmName || currentUser.role || 'ผู้ใช้งานฟาร์ม'}</small>
+          <small>{currentUser.province || currentUser.farmName || currentUser.role || 'ผู้ใช้งานฟาร์ม'}</small>
         </span>
         <button className="logout-button" onClick={onLogout} type="button" aria-label="ออกจากระบบ">
           <LogOut size={18} />
@@ -970,13 +1035,37 @@ function LoginScreen({ onLogin }) {
   const [form, setForm] = useState({
     name: '',
     phone: '',
-    farmName: '',
-    role: 'เจ้าของฟาร์ม',
-    pin: '',
+    province: '',
   });
+  const provinceDropdownRef = useRef(null);
+  const [isProvinceOpen, setProvinceOpen] = useState(false);
   const endpoint = getStoredEndpoint();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!isProvinceOpen) return undefined;
+
+    function closeProvinceDropdown(event) {
+      if (!provinceDropdownRef.current?.contains(event.target)) {
+        setProvinceOpen(false);
+      }
+    }
+
+    function closeProvinceDropdownByKey(event) {
+      if (event.key === 'Escape') {
+        setProvinceOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeProvinceDropdown);
+    document.addEventListener('keydown', closeProvinceDropdownByKey);
+
+    return () => {
+      document.removeEventListener('mousedown', closeProvinceDropdown);
+      document.removeEventListener('keydown', closeProvinceDropdownByKey);
+    };
+  }, [isProvinceOpen]);
 
   function updateField(key, value) {
     setMessage('');
@@ -988,19 +1077,23 @@ function LoginScreen({ onLogin }) {
 
   function switchMode(nextMode) {
     setMode(nextMode);
+    setProvinceOpen(false);
     setMessage('');
+  }
+
+  function chooseProvince(province) {
+    updateField('province', province);
+    setProvinceOpen(false);
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSubmitting(true);
-    setMessage(mode === 'register' ? 'กำลังสมัครสมาชิก...' : 'กำลังเข้าสู่ระบบ...');
-
-    if (form.pin.trim().length < 4) {
-      setMessage('กรุณาตั้งรหัสผ่านอย่างน้อย 4 ตัวอักษร');
-      setIsSubmitting(false);
-      return;
-    }
+    setMessage(
+      mode === 'register'
+        ? 'กำลังสมัครสมาชิก...'
+        : 'กำลังเข้าสู่ระบบ...',
+    );
 
     const phone = normalizePhone(form.phone);
     if (phone.length !== 10) {
@@ -1009,17 +1102,23 @@ function LoginScreen({ onLogin }) {
       return;
     }
 
-    const pinHash = await hashSecret(form.pin);
+    if (mode === 'register' && !form.province.trim()) {
+      setMessage('กรุณาเลือกจังหวัด');
+      setIsSubmitting(false);
+      return;
+    }
+
     const payload = {
       name: form.name.trim(),
       phone,
-      farmName: form.farmName.trim(),
-      role: form.role.trim() || 'ผู้ใช้งานฟาร์ม',
-      pinHash,
+      province: form.province.trim(),
+      farmName: '',
+      role: 'ผู้ใช้งานฟาร์ม',
       userAgent: window.navigator.userAgent,
     };
 
-    const result = await callMembershipApi(mode === 'register' ? 'register' : 'login', payload, endpoint);
+    const action = mode === 'register' ? 'register' : 'login';
+    const result = await callMembershipApi(action, payload, endpoint);
 
     if (!result.ok) {
       setMessage(userFriendlyAuthMessage(result, mode));
@@ -1032,11 +1131,9 @@ function LoginScreen({ onLogin }) {
       setForm((current) => ({
         ...current,
         name: '',
-        farmName: '',
-        role: 'เจ้าของฟาร์ม',
-        pin: '',
+        province: '',
       }));
-      setMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบด้วยเบอร์โทรและรหัสผ่านที่สมัครไว้');
+      setMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบด้วยเบอร์โทรที่สมัครไว้');
       setIsSubmitting(false);
       return;
     }
@@ -1072,11 +1169,11 @@ function LoginScreen({ onLogin }) {
         </div>
 
         <div className="login-copy">
-          <h1>{mode === 'register' ? 'สมัครสมาชิกเกษตรกร' : 'เข้าสู่ระบบฟาร์มของคุณ'}</h1>
-          <p>
-            เมื่อเข้าสู่ระบบ แอปจะโหลดข้อมูลกิจกรรมและบัญชีต้นทุนของผู้ใช้คนนั้นกลับมาเหมือนเดิม
-            และบันทึกการเปลี่ยนแปลงไว้ในระบบจัดเก็บข้อมูลที่ตั้งค่าไว้แล้ว
-          </p>
+          <h1>
+            {mode === 'register'
+              ? 'สมัครสมาชิกเกษตรกร'
+              : 'เข้าสู่ระบบฟาร์มของคุณ'}
+          </h1>
         </div>
 
         <div className="login-tabs" role="tablist" aria-label="เลือกโหมดบัญชี">
@@ -1127,46 +1224,54 @@ function LoginScreen({ onLogin }) {
                 type="tel"
               />
             </label>
-            <label>
-              <span>รหัสผ่าน/PIN</span>
-              <input
-                value={form.pin}
-                onChange={(event) => updateField('pin', event.target.value)}
-                placeholder="อย่างน้อย 4 ตัวอักษร"
-                required
-                type="password"
-              />
-            </label>
             {mode === 'register' && (
-              <>
-                <label>
-                  <span>ชื่อฟาร์ม</span>
-                  <input
-                    value={form.farmName}
-                    onChange={(event) => updateField('farmName', event.target.value)}
-                    placeholder="เช่น ฟาร์มผักอินทรีย์"
-                    type="text"
-                  />
-                </label>
-                <label>
-                  <span>บทบาท</span>
-                  <select value={form.role} onChange={(event) => updateField('role', event.target.value)}>
-                    <option>เจ้าของฟาร์ม</option>
-                    <option>ผู้จัดการแปลง</option>
-                    <option>พนักงานบันทึกข้อมูล</option>
-                  </select>
-                </label>
-              </>
+              <label className="province-field">
+                <span>จังหวัด</span>
+                <div className="province-select" ref={provinceDropdownRef}>
+                  <button
+                    aria-expanded={isProvinceOpen}
+                    aria-haspopup="listbox"
+                    className="province-select-button"
+                    onClick={() => setProvinceOpen((current) => !current)}
+                    type="button"
+                  >
+                    <span className={form.province ? '' : 'placeholder'}>
+                      {form.province || 'เลือกจังหวัด'}
+                    </span>
+                    <ChevronDown size={18} />
+                  </button>
+                  {isProvinceOpen && (
+                    <div className="province-options" role="listbox" aria-label="เลือกจังหวัด">
+                      {thaiProvinces.map((province) => (
+                        <button
+                          aria-selected={form.province === province}
+                          className={`province-option ${form.province === province ? 'active' : ''}`}
+                          key={province}
+                          onClick={() => chooseProvince(province)}
+                          role="option"
+                          type="button"
+                        >
+                          {province}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </label>
             )}
           </div>
 
           <p className="login-note">
             <ShieldCheck size={18} />
-            ระบบจะเก็บรหัสผ่านเป็นค่า hash และบันทึกข้อมูลกิจกรรม/ต้นทุนแยกตามบัญชีผู้ใช้
+            ระบบจะใช้เบอร์โทรเพื่อค้นหาบัญชี และบันทึกข้อมูลกิจกรรม/ต้นทุนแยกตามบัญชีผู้ใช้
           </p>
 
           <button className="login-button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? 'กำลังดำเนินการ...' : mode === 'register' ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ'}
+            {isSubmitting
+              ? 'กำลังดำเนินการ...'
+              : mode === 'register'
+                ? 'สมัครสมาชิก'
+                : 'เข้าสู่ระบบ'}
           </button>
           {message && <p className="login-status">{message}</p>}
         </form>
@@ -2780,9 +2885,9 @@ function SettingsPage({ session }) {
           </span>
           <div>
             <strong>{currentUser.name}</strong>
-            <span>{currentUser.farmName || 'ยังไม่ได้ระบุชื่อฟาร์ม'}</span>
+            <span>{currentUser.province || currentUser.farmName || 'ยังไม่ได้ระบุจังหวัด'}</span>
             <small>
-              {currentUser.role} • ข้อมูลถูกบันทึกแยกตามบัญชีผู้ใช้
+              {currentUser.province ? 'จังหวัดที่ลงทะเบียน' : currentUser.role || 'ผู้ใช้งานฟาร์ม'} • ข้อมูลถูกบันทึกแยกตามบัญชีผู้ใช้
             </small>
           </div>
         </div>
