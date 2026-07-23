@@ -517,7 +517,7 @@ function userFriendlyAuthMessage(result, mode) {
   }
 
   if (mode === 'register' && normalized.includes('registered')) {
-    return 'เบอร์โทรนี้สมัครสมาชิกแล้ว กรุณาเข้าสู่ระบบ';
+    return 'เบอร์โทรนี้สมัครสมาชิกแล้ว';
   }
 
   if (mode === 'register' && normalized.includes('unknown action')) {
@@ -665,7 +665,7 @@ async function callLocalMembershipApi(action, payload) {
 
   if (action === 'register') {
     if (users[phone]) {
-      return { ok: false, message: 'เบอร์โทรนี้สมัครสมาชิกแล้ว กรุณาเข้าสู่ระบบ' };
+      return { ok: false, message: 'เบอร์โทรนี้สมัครสมาชิกแล้ว' };
     }
 
     const user = {
@@ -1086,6 +1086,8 @@ function LoginScreen({ onLogin }) {
   const endpoint = getStoredEndpoint();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [isRegistrationSuccessOpen, setRegistrationSuccessOpen] = useState(false);
+  const [registrationFailure, setRegistrationFailure] = useState(null);
 
   useEffect(() => {
     if (!isProvinceOpen) return undefined;
@@ -1113,6 +1115,7 @@ function LoginScreen({ onLogin }) {
 
   function updateField(key, value) {
     setMessage('');
+    setRegistrationFailure(null);
     setForm((current) => ({
       ...current,
       [key]: key === 'phone' ? normalizePhoneInput(value) : value,
@@ -1123,6 +1126,7 @@ function LoginScreen({ onLogin }) {
     setMode(nextMode);
     setProvinceOpen(false);
     setMessage('');
+    setRegistrationFailure(null);
   }
 
   function chooseProvince(province) {
@@ -1165,7 +1169,16 @@ function LoginScreen({ onLogin }) {
     const result = await callMembershipApi(action, payload, endpoint);
 
     if (!result.ok) {
-      setMessage(userFriendlyAuthMessage(result, mode));
+      const friendlyMessage = userFriendlyAuthMessage(result, mode);
+      if (mode === 'register') {
+        setMessage('');
+        setRegistrationFailure({
+          title: 'สมัครสมาชิกไม่สำเร็จ',
+          description: friendlyMessage,
+        });
+      } else {
+        setMessage(friendlyMessage);
+      }
       setIsSubmitting(false);
       return;
     }
@@ -1177,7 +1190,9 @@ function LoginScreen({ onLogin }) {
         name: '',
         province: '',
       }));
-      setMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบด้วยเบอร์โทรที่สมัครไว้');
+      setMessage('');
+      setRegistrationFailure(null);
+      setRegistrationSuccessOpen(true);
       setIsSubmitting(false);
       return;
     }
@@ -1218,27 +1233,6 @@ function LoginScreen({ onLogin }) {
               ? 'สมัครสมาชิกเกษตรกร'
               : 'เข้าสู่ระบบฟาร์มของคุณ'}
           </h1>
-        </div>
-
-        <div className="login-tabs" role="tablist" aria-label="เลือกโหมดบัญชี">
-          <button
-            className={mode === 'login' ? 'active' : ''}
-            onClick={() => switchMode('login')}
-            role="tab"
-            type="button"
-            aria-selected={mode === 'login'}
-          >
-            เข้าสู่ระบบ
-          </button>
-          <button
-            className={mode === 'register' ? 'active' : ''}
-            onClick={() => switchMode('register')}
-            role="tab"
-            type="button"
-            aria-selected={mode === 'register'}
-          >
-            สมัครสมาชิก
-          </button>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -1317,9 +1311,27 @@ function LoginScreen({ onLogin }) {
                 ? 'สมัครสมาชิก'
                 : 'เข้าสู่ระบบ'}
           </button>
+          <button
+            className="register-switch-button"
+            disabled={isSubmitting}
+            onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+            type="button"
+          >
+            {mode === 'login' ? 'สมัครสมาชิก' : 'กลับไปเข้าสู่ระบบ'}
+          </button>
           {message && <p className="login-status">{message}</p>}
         </form>
       </section>
+      {isRegistrationSuccessOpen && (
+        <RegistrationSuccessModal onClose={() => setRegistrationSuccessOpen(false)} />
+      )}
+      {registrationFailure && (
+        <RegistrationFailureModal
+          description={registrationFailure.description}
+          title={registrationFailure.title}
+          onClose={() => setRegistrationFailure(null)}
+        />
+      )}
     </main>
   );
 }
@@ -1403,7 +1415,7 @@ function OverviewAction({ onStartActivity }) {
   return (
     <section className="overview-action">
       <button className="overview-start-button" onClick={onStartActivity} type="button">
-        <span aria-hidden="true">➕</span>
+        <Plus size={22} />
         เพิ่มบันทึกกิจกรรม
       </button>
     </section>
@@ -1733,7 +1745,7 @@ function CategoryChip({ category }) {
   );
 }
 
-function ActivityTable({ activities, activeCategory, onClearActivities, onDeleteActivity, onEditActivity, plots, setActiveCategory }) {
+function ActivityTable({ activities, activeCategory, onClearActivities, onDeleteActivity, onEditActivity, onStartActivity, plots, setActiveCategory }) {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [activityPendingDelete, setActivityPendingDelete] = useState(null);
@@ -1781,6 +1793,12 @@ function ActivityTable({ activities, activeCategory, onClearActivities, onDelete
 
   return (
     <article className="panel activity-panel">
+      <section className="activity-history-action-bar">
+        <button className="activity-history-start-button" onClick={onStartActivity} type="button">
+          <Plus size={22} />
+          เพิ่มบันทึกกิจกรรม
+        </button>
+      </section>
       <div className="panel-heading table-heading activity-history-heading">
         <h2>กิจกรรมล่าสุด</h2>
         <div className="activity-history-controls">
@@ -2050,6 +2068,58 @@ function ConfirmLogoutModal({ onCancel, onConfirm }) {
           <button className="danger-action confirm-danger" onClick={onConfirm} type="button" autoFocus>
             <LogOut size={18} />
             ยืนยันออกจากระบบ
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RegistrationSuccessModal({ onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="confirm-modal" role="dialog" aria-modal="true" aria-label="สมัครสมาชิกสำเร็จ" onClick={(event) => event.stopPropagation()}>
+        <div className="confirm-icon success-icon">
+          <ShieldCheck size={28} />
+        </div>
+        <div>
+          <span className="confirm-eyebrow success-eyebrow">สมัครสมาชิกสำเร็จ</span>
+          <h2>บันทึกข้อมูลสมาชิกเรียบร้อยแล้ว</h2>
+          <p>
+            ระบบบันทึกข้อมูลผู้ใช้งานของคุณเรียบร้อยแล้ว
+          </p>
+        </div>
+        <div className="confirm-actions">
+          <button className="success-action" onClick={onClose} type="button" autoFocus>
+            เข้าสู่ระบบ
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RegistrationFailureModal({ title, description, onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="confirm-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
+        <div className="confirm-icon failure-icon">
+          <CircleHelp size={28} />
+        </div>
+        <div>
+          <span className="confirm-eyebrow failure-eyebrow">สมัครสมาชิกไม่สำเร็จ</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
+          <div className="service-contact-line">
+            <Phone size={18} />
+            <span>
+              <strong>ติดต่อศูนย์บริการ</strong> โทร : 0-5640-5114
+            </span>
+          </div>
+        </div>
+        <div className="confirm-actions">
+          <button className="alert-action" onClick={onClose} type="button" autoFocus>
+            เข้าใจแล้ว
           </button>
         </div>
       </section>
@@ -2476,31 +2546,39 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
           </div>
         </label>
 
-        <div className="plot-manager">
-          <div className="plot-manager-heading">
-            <span>แปลงเพาะปลูก</span>
-            <button
-              className="mini-action"
-              onClick={() => {
-                setPlotDraft({
-                  id: null,
-                  number: '',
-                  name: '',
-                  crop: cropOptions[0],
-                  cropOther: '',
-                  rai: '',
-                  ngan: '',
-                  wah: '',
-                  ownership: 'ตนเอง',
-                });
-                setPlotPanelOpen((current) => !current);
-              }}
-              type="button"
-            >
-              <Plus size={17} />
-              เพิ่มแปลง
-            </button>
+        <section className="entry-section entry-plot-section">
+          <div className="entry-section-heading">
+            <span className="entry-section-icon">
+              <Tractor size={18} />
+            </span>
+            <h3>แปลงเพาะปลูก</h3>
           </div>
+
+          <div className="plot-manager">
+            <div className="plot-manager-heading">
+              <span>จัดการแปลง</span>
+              <button
+                className="mini-action"
+                onClick={() => {
+                  setPlotDraft({
+                    id: null,
+                    number: '',
+                    name: '',
+                    crop: cropOptions[0],
+                    cropOther: '',
+                    rai: '',
+                    ngan: '',
+                    wah: '',
+                    ownership: 'ตนเอง',
+                  });
+                  setPlotPanelOpen((current) => !current);
+                }}
+                type="button"
+              >
+                <Plus size={17} />
+                เพิ่มแปลง
+              </button>
+            </div>
 
           {plotPanelOpen && (
             <div className="plot-editor">
@@ -2631,8 +2709,18 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
               <ChevronDown size={17} />
             </div>
           </label>
-        </div>
+          </div>
+        </section>
 
+        <section className="entry-section entry-expense-section">
+          <div className="entry-section-heading">
+            <span className="entry-section-icon expense">
+              <WalletCards size={18} />
+            </span>
+            <h3>รายการค่าใช้จ่าย</h3>
+          </div>
+
+          <div className="entry-cost-grid">
         <label>
           <span>ค่าแรง/ค่าจ้าง (บาท)</span>
           <input
@@ -2654,6 +2742,7 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
             type="number"
           />
         </label>
+          </div>
 
         <div className="materials-editor">
           <div className="materials-heading">
@@ -2692,8 +2781,17 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
             <strong>{decimalBaht.format(materialSum)} บาท</strong>
           </div>
         </div>
+        </section>
 
-        <div className="production-editor">
+        <section className="entry-section entry-income-section">
+          <div className="entry-section-heading">
+            <span className="entry-section-icon income">
+              <Coins size={18} />
+            </span>
+            <h3>รายการรายรับ</h3>
+          </div>
+
+          <div className="production-editor">
           <div className="materials-heading">
             <span>รายการรายรับ</span>
             <button className="mini-action" onClick={addProductionItem} type="button">
@@ -2777,8 +2875,17 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
             <strong className="production-income-total">{decimalBaht.format(productionIncomeTotal)} บาท</strong>
           </div>
         </div>
+        </section>
 
-        <label>
+        <section className="entry-section entry-note-section">
+          <div className="entry-section-heading">
+            <span className="entry-section-icon note">
+              <FileText size={18} />
+            </span>
+            <h3>หมายเหตุ</h3>
+          </div>
+
+        <label className="note-field">
           <span>หมายเหตุ</span>
           <textarea
             value={form.note}
@@ -2788,6 +2895,7 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
           />
           <small className="counter">{form.note.length} / 200</small>
         </label>
+        </section>
 
         <button className="save-button" type="submit">
           <Save size={20} />
@@ -3329,6 +3437,7 @@ export default function App() {
           onClearActivities={clearActivities}
           onDeleteActivity={deleteActivity}
           onEditActivity={editActivity}
+          onStartActivity={startNewActivity}
           plots={plots}
           setActiveCategory={setActiveCategory}
         />
