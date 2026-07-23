@@ -1216,7 +1216,7 @@ function LoginScreen({ onLogin }) {
         backgroundImage: `linear-gradient(135deg, rgba(9, 97, 55, 0.92), rgba(5, 61, 40, 0.9)), url("${farmFieldsImage}")`,
       }}
     >
-      <section className="login-card" aria-label="เข้าสู่ระบบและสมัครสมาชิก FarmCost">
+      <section className={`login-card ${mode === 'register' ? 'register-card' : 'login-only-card'}`} aria-label="เข้าสู่ระบบและสมัครสมาชิก FarmCost">
         <div className="login-brand">
           <span className="brand-mark">
             <img className="brand-logo" src={farmCostLogo} alt="" />
@@ -1236,7 +1236,7 @@ function LoginScreen({ onLogin }) {
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <div className="login-grid">
+          <div className={`login-grid ${mode === 'register' ? 'register-grid' : 'login-only-grid'}`}>
             {mode === 'register' && (
               <label>
                 <span>ชื่อผู้ใช้งาน</span>
