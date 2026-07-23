@@ -1,8 +1,10 @@
-const CACHE_NAME = 'farmcost-pwa-v4';
+const CACHE_NAME = 'farmcost-pwa-v6';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './assets/index-DYIJLjy9.js',
+  './assets/index-BCNY0v2f.css',
   './farmcost-logo.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -15,7 +17,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => Promise.allSettled(APP_SHELL.map((asset) => cache.add(asset))))
       .then(() => self.skipWaiting()),
   );
 });
