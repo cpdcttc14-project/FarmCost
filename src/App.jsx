@@ -502,6 +502,18 @@ function userFriendlyAuthMessage(result, mode) {
     return 'เบอร์โทรนี้สมัครสมาชิกแล้ว กรุณาเข้าสู่ระบบ';
   }
 
+  if (mode === 'register' && normalized.includes('unknown action')) {
+    return 'สมัครสมาชิกไม่สำเร็จ: Apps Script ยังเป็นเวอร์ชันเก่า กรุณาวางไฟล์ google-sheet-webapp.gs ล่าสุด แล้ว Deploy เป็นเวอร์ชันใหม่';
+  }
+
+  if (mode === 'register' && normalized.includes('google sheets')) {
+    return rawMessage;
+  }
+
+  if (mode === 'register' && normalized.includes('เชื่อมต่อ')) {
+    return rawMessage;
+  }
+
   return rawMessage || 'ดำเนินการไม่สำเร็จ กรุณาตรวจสอบข้อมูลอีกครั้ง';
 }
 
@@ -586,6 +598,13 @@ async function callMembershipApi(action, payload, endpoint) {
       }
     }
 
+    if (action === 'register') {
+      return {
+        ok: false,
+        message: remoteResult?.message || 'สมัครสมาชิกไม่สำเร็จ เพราะ Google Sheets ยังไม่ตอบรับข้อมูล',
+      };
+    }
+
     const localResult = await callLocalMembershipApi(action, payload);
     if (localResult.ok) {
       return {
@@ -599,6 +618,13 @@ async function callMembershipApi(action, payload, endpoint) {
 
     return remoteResult;
   } catch (error) {
+    if (action === 'register') {
+      return {
+        ok: false,
+        message: error.message || 'สมัครสมาชิกไม่สำเร็จ เพราะเชื่อมต่อ Google Sheets ไม่สำเร็จ กรุณาตรวจสอบ Apps Script และ Deploy เวอร์ชันล่าสุด',
+      };
+    }
+
     const localResult = await callLocalMembershipApi(action, payload);
     if (localResult.ok) {
       return {
