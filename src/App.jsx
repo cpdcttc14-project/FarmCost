@@ -1673,6 +1673,35 @@ function ConfirmDeleteActivityModal({ activity, onCancel, onConfirm }) {
   );
 }
 
+function ConfirmLogoutModal({ onCancel, onConfirm }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+      <section className="confirm-modal" role="dialog" aria-modal="true" aria-label="ยืนยันการออกจากระบบ" onClick={(event) => event.stopPropagation()}>
+        <div className="confirm-icon">
+          <LogOut size={26} />
+        </div>
+        <div>
+          <span className="confirm-eyebrow">ยืนยันการออกจากระบบ</span>
+          <h2>ต้องการออกจากระบบหรือไม่?</h2>
+          <p>
+            ระบบจะกลับไปยังหน้าเข้าสู่ระบบ ข้อมูลกิจกรรมและแปลงเพาะปลูกที่บันทึกไว้
+            จะยังอยู่ในบัญชีผู้ใช้งานของคุณ
+          </p>
+        </div>
+        <div className="confirm-actions">
+          <button className="secondary-action" onClick={onCancel} type="button">
+            ยกเลิก
+          </button>
+          <button className="danger-action confirm-danger" onClick={onConfirm} type="button" autoFocus>
+            <LogOut size={18} />
+            ยืนยันออกจากระบบ
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ValidationAlertModal({ title, description, onClose }) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -1768,7 +1797,7 @@ function ActivityDetailModal({ activity, onClose }) {
             )}
           </div>
           <div>
-            <h3>ผลผลิตที่ได้</h3>
+            <h3>รายการรายรับ</h3>
             {outputs.length > 0 ? (
               <ul className="detail-list">
                 {outputs.map((item) => (
@@ -1782,7 +1811,7 @@ function ActivityDetailModal({ activity, onClose }) {
                 ))}
               </ul>
             ) : (
-              <p className="detail-empty">ยังไม่มีข้อมูลผลผลิต</p>
+              <p className="detail-empty">ยังไม่มีข้อมูลรายรับ</p>
             )}
           </div>
           <div>
@@ -2311,10 +2340,10 @@ function QuickEntryForm({ editingActivity, plots, onAddActivity, onCancelEditAct
 
         <div className="production-editor">
           <div className="materials-heading">
-            <span>ผลผลิตที่ได้</span>
+            <span>รายการรายรับ</span>
             <button className="mini-action" onClick={addProductionItem} type="button">
               <Plus size={17} />
-              เพิ่มผลผลิต
+              เพิ่มรายรับ
             </button>
           </div>
           <div className="materials-list">
@@ -2640,6 +2669,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
   const [activeView, setActiveView] = useState('overview');
   const [editingActivity, setEditingActivity] = useState(null);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [query, setQuery] = useState('');
 
   const visibleActivities = useMemo(() => {
@@ -2784,11 +2814,16 @@ export default function App() {
   }
 
   function handleLogout() {
+    setIsLogoutConfirmOpen(true);
+  }
+
+  function confirmLogout() {
     try {
       window.localStorage.removeItem(USER_STORAGE_KEY);
     } catch {
       // Nothing else is needed when local storage is unavailable.
     }
+    setIsLogoutConfirmOpen(false);
     setActiveView('overview');
     setEditingActivity(null);
     setSession(null);
@@ -2883,6 +2918,12 @@ export default function App() {
         {renderActiveView()}
       </main>
       <BottomNav activeView={activeView} setActiveView={navigateToView} />
+      {isLogoutConfirmOpen && (
+        <ConfirmLogoutModal
+          onCancel={() => setIsLogoutConfirmOpen(false)}
+          onConfirm={confirmLogout}
+        />
+      )}
     </div>
   );
 }
