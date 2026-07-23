@@ -6,6 +6,8 @@ import {
   ChevronDown,
   ChevronRight,
   CircleHelp,
+  CloudCheck,
+  CloudOff,
   Clock,
   ClipboardCheck,
   ClipboardList,
@@ -23,6 +25,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  RefreshCw,
   Save,
   Search,
   ShieldCheck,
@@ -219,6 +222,7 @@ const USER_STORAGE_KEY = 'farmcost:session:v3';
 const DEFAULT_SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzShwF8OHH_94wKJsds_VVhFNxAor-76fkRj8pMx_6UkgbAvjs_PqcnWUuJ8wq5aEvM/exec';
 const LOCAL_USERS_KEY = 'farmcost:localUsers:v3';
 const LOCAL_STATES_KEY = 'farmcost:localStates:v3';
+const PENDING_SYNC_KEY = 'farmcost:pendingSync:v1';
 const farmFieldsImage = `${import.meta.env.BASE_URL}farm-fields.png`;
 const farmCostLogo = `${import.meta.env.BASE_URL}farmcost-logo.png?v=20260721`;
 
@@ -266,6 +270,128 @@ function setLocalCollection(key, value) {
   } catch {
     // The app still works for the current session when storage is unavailable.
   }
+}
+
+function getIsOnline() {
+  return typeof window === 'undefined' || window.navigator.onLine !== false;
+}
+
+function getPendingSyncCollection() {
+  return getLocalCollection(PENDING_SYNC_KEY);
+}
+
+function getPendingSyncRecord(userId) {
+  if (!userId) return null;
+  return getPendingSyncCollection()[userId] || null;
+}
+
+function setPendingSyncRecord(session, state, reason, options = {}) {
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const pending = getPendingSyncCollection();
+  const current = pending[userId] || {};
+  const shouldIncrement = options.increment !== false;
+  const now = new Date().toISOString();
+
+  pending[userId] = {
+    userId,
+    endpoint: session.endpoint || DEFAULT_SHEET_ENDPOINT,
+    token: session.token,
+    state,
+    queuedAt: current.queuedAt || now,
+    updatedAt: now,
+    reason: reason || 'รอเชื่อมต่อระบบจัดเก็บข้อมูล',
+    changeCount: shouldIncrement ? Number(current.changeCount || 0) + 1 : Number(current.changeCount || 1),
+  };
+
+  setLocalCollection(PENDING_SYNC_KEY, pending);
+  return pending[userId];
+}
+
+function clearPendingSyncRecord(userId) {
+  if (!userId) return;
+  const pending = getPendingSyncCollection();
+  if (!pending[userId]) return;
+  delete pending[userId];
+  setLocalCollection(PENDING_SYNC_KEY, pending);
+}
+
+function createInitialSyncStatus(session) {
+  const pendingRecord = getPendingSyncRecord(session?.user?.id);
+
+  if (pendingRecord) {
+    return {
+      status: 'pending',
+      pendingCount: Number(pendingRecord.changeCount || 1),
+      message: 'มีข้อมูลที่บันทึกไว้ในเครื่องและรอซิงก์เข้า Google Sheets',
+      updatedAt: pendingRecord.updatedAt,
+      lastSyncedAt: '',
+    };
+  }
+
+  return {
+    status: 'synced',
+    pendingCount: 0,
+    message: 'ข้อมูลพร้อมใช้งาน',
+    updatedAt: '',
+    lastSyncedAt: '',
+  };
+}
+
+function createSyncStatusFromResult(result, currentStatus = {}) {
+  const now = new Date().toISOString();
+
+  if (result?.queued) {
+    return {
+      status: 'pending',
+      pendingCount: Number(result.pendingCount || currentStatus.pendingCount || 1),
+      message: result.message || 'บันทึกไว้ในเครื่องแล้ว รอซิงก์เข้า Google Sheets',
+      updatedAt: now,
+      lastSyncedAt: currentStatus.lastSyncedAt || '',
+    };
+  }
+
+  if (result?.ok && result.localOnly) {
+    return {
+      status: 'local',
+      pendingCount: 0,
+      message: 'บันทึกไว้ในเครื่องนี้',
+      updatedAt: now,
+      lastSyncedAt: currentStatus.lastSyncedAt || '',
+    };
+  }
+
+  if (result?.ok) {
+    return {
+      status: 'synced',
+      pendingCount: 0,
+      message: result.unverified ? 'ส่งคำขอซิงก์ไป Google Sheets แล้ว' : 'ซิงก์ข้อมูลกับ Google Sheets แล้ว',
+      updatedAt: now,
+      lastSyncedAt: result.syncedAt || now,
+    };
+  }
+
+  return {
+    status: 'failed',
+    pendingCount: Number(result?.pendingCount || currentStatus.pendingCount || 0),
+    message: result?.message || 'ซิงก์ข้อมูลไม่สำเร็จ',
+    updatedAt: now,
+    lastSyncedAt: currentStatus.lastSyncedAt || '',
+  };
+}
+
+function formatSyncTimestamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('th-TH', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function normalizePhone(phone) {
@@ -476,7 +602,7 @@ async function callLocalMembershipApi(action, payload) {
   return { ok: false, message: 'ไม่รู้จักคำสั่งนี้' };
 }
 
-async function saveUserState(session, appState) {
+async function saveUserState(session, appState, options = {}) {
   const state = {
     ...appState,
     updatedAt: new Date().toISOString(),
@@ -489,6 +615,24 @@ async function saveUserState(session, appState) {
   const endpoint = session.endpoint || DEFAULT_SHEET_ENDPOINT;
   if (!endpoint.trim()) {
     return { ok: true, localOnly: true };
+  }
+
+  function queuePendingSync(reason) {
+    const pendingRecord = setPendingSyncRecord(session, state, reason, {
+      increment: options.incrementPending !== false,
+    });
+
+    return {
+      ok: false,
+      queued: true,
+      pendingCount: Number(pendingRecord?.changeCount || 1),
+      message: 'บันทึกไว้ในเครื่องแล้ว รอซิงก์เข้า Google Sheets',
+      reason,
+    };
+  }
+
+  if (!getIsOnline()) {
+    return queuePendingSync('อุปกรณ์ออฟไลน์');
   }
 
   const savePayload = {
@@ -506,9 +650,21 @@ async function saveUserState(session, appState) {
       userAgent: window.navigator.userAgent,
     });
 
-    if (remoteResult?.ok) return remoteResult;
-  } catch {
-    // Long or rejected JSONP requests fall back to POST below.
+    if (remoteResult?.ok) {
+      clearPendingSyncRecord(session.user.id);
+      return {
+        ...remoteResult,
+        pendingCount: 0,
+        syncedAt: new Date().toISOString(),
+      };
+    }
+
+    return queuePendingSync(remoteResult?.message || 'Google Sheets ยังไม่รับข้อมูลชุดนี้');
+  } catch (error) {
+    if (!getIsOnline()) {
+      return queuePendingSync(error.message || 'อุปกรณ์ออฟไลน์');
+    }
+    // Long JSONP requests fall back to POST below.
   }
 
   try {
@@ -523,9 +679,15 @@ async function saveUserState(session, appState) {
         ...savePayload,
       }),
     });
-    return { ok: true };
+    clearPendingSyncRecord(session.user.id);
+    return {
+      ok: true,
+      pendingCount: 0,
+      syncedAt: new Date().toISOString(),
+      unverified: true,
+    };
   } catch (error) {
-    return { ok: false, error: error.message };
+    return queuePendingSync(error.message || 'เชื่อมต่อ Google Sheets ไม่สำเร็จ');
   }
 }
 
@@ -756,6 +918,50 @@ function MobileHeader({ onLogout, setActiveView }) {
         </button>
       </div>
     </header>
+  );
+}
+
+function SyncStatusBanner({ isOnline, onSyncNow, syncStatus }) {
+  const status = syncStatus?.status || 'synced';
+  const pendingCount = Number(syncStatus?.pendingCount || 0);
+
+  if (isOnline && pendingCount === 0 && (status === 'synced' || status === 'local')) return null;
+
+  const isSyncing = status === 'syncing';
+  const Icon = isOnline ? CloudCheck : CloudOff;
+  const variant = !isOnline ? 'offline' : status;
+  const syncedTime = formatSyncTimestamp(syncStatus?.lastSyncedAt);
+  const title = !isOnline
+    ? 'กำลังใช้งานออฟไลน์'
+    : isSyncing
+      ? 'กำลังซิงก์ข้อมูล'
+      : pendingCount > 0
+        ? 'มีข้อมูลรอซิงก์'
+        : 'ตรวจสอบการซิงก์ข้อมูล';
+  const description = !isOnline
+    ? 'ข้อมูลที่บันทึกใหม่จะถูกเก็บไว้ในเครื่องนี้ และจะซิงก์เข้า Google Sheets เมื่อกลับมาออนไลน์'
+    : pendingCount > 0
+      ? `${pendingCount} การเปลี่ยนแปลงถูกบันทึกไว้ในเครื่องนี้แล้ว`
+      : syncedTime
+        ? `ซิงก์ล่าสุด ${syncedTime}`
+        : syncStatus?.message || 'ข้อมูลพร้อมใช้งาน';
+
+  return (
+    <article className={`sync-banner ${variant}`} aria-live="polite">
+      <span className="sync-banner-icon" aria-hidden="true">
+        <Icon size={21} />
+      </span>
+      <div>
+        <strong>{title}</strong>
+        <p>{description}</p>
+      </div>
+      {isOnline && pendingCount > 0 && (
+        <button className="sync-now-button" disabled={isSyncing} onClick={onSyncNow} type="button">
+          <RefreshCw size={16} />
+          {isSyncing ? 'กำลังซิงก์' : 'ซิงก์ตอนนี้'}
+        </button>
+      )}
+    </article>
   );
 }
 
@@ -2671,6 +2877,48 @@ export default function App() {
   const [editingActivity, setEditingActivity] = useState(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const saveSequenceRef = useRef(0);
+  const [isOnline, setIsOnline] = useState(getIsOnline);
+  const [syncStatus, setSyncStatus] = useState(() => createInitialSyncStatus(getStoredSession()));
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+      setSyncStatus((current) => ({
+        ...current,
+        status: current.pendingCount > 0 ? 'pending' : 'offline',
+        message: 'กำลังใช้งานออฟไลน์',
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    setSyncStatus(createInitialSyncStatus(session));
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session || !isOnline) return undefined;
+    if (!getPendingSyncRecord(session.user.id)) return undefined;
+
+    const timer = window.setTimeout(() => {
+      syncPendingState();
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [isOnline, session?.user?.id]);
 
   const visibleActivities = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -2797,20 +3045,95 @@ export default function App() {
     setActiveCategory('ทั้งหมด');
     setActiveView('overview');
     setEditingActivity(null);
+    setSyncStatus(createInitialSyncStatus(nextSession));
 
     if ((remoteActivities.length === 0 && localActivities.length > 0) || (remotePlots.length === 0 && localPlots.length > 0)) {
-      saveUserState(nextSession, { activities: nextActivities, plots: nextPlots });
+      setSyncStatus((current) => ({
+        ...current,
+        status: getIsOnline() ? 'syncing' : 'pending',
+        message: getIsOnline()
+          ? 'กำลังซิงก์ข้อมูลในเครื่องกับ Google Sheets'
+          : 'บันทึกไว้ในเครื่องแล้ว รอซิงก์เข้า Google Sheets',
+      }));
+      saveUserState(nextSession, { activities: nextActivities, plots: nextPlots }).then((result) => {
+        setSyncStatus((current) => createSyncStatusFromResult(result, current));
+      });
     }
   }
 
   async function persistActivities(nextActivities) {
     if (!session) return { ok: false, localOnly: true };
-    return saveUserState(session, { activities: nextActivities, plots });
+    return saveCurrentState({ activities: nextActivities, plots });
   }
 
-  async function saveCurrentState(state = { activities, plots }) {
+  function saveCurrentState(state = { activities, plots }) {
     if (!session) return { ok: false, localOnly: true };
-    return saveUserState(session, state);
+
+    const requestId = ++saveSequenceRef.current;
+    const pendingRecord = getPendingSyncRecord(session.user.id);
+
+    setSyncStatus((current) => ({
+      ...current,
+      status: getIsOnline() ? 'syncing' : 'pending',
+      pendingCount: Number(pendingRecord?.changeCount || current.pendingCount || 0),
+      message: getIsOnline()
+        ? 'กำลังซิงก์ข้อมูลกับ Google Sheets'
+        : 'บันทึกไว้ในเครื่องแล้ว รอซิงก์เข้า Google Sheets',
+      updatedAt: new Date().toISOString(),
+    }));
+
+    return saveUserState(session, state)
+      .then((result) => {
+        if (requestId === saveSequenceRef.current) {
+          setSyncStatus((current) => createSyncStatusFromResult(result, current));
+        }
+        return result;
+      })
+      .catch((error) => {
+        const result = {
+          ok: false,
+          queued: true,
+          pendingCount: Number(getPendingSyncRecord(session.user.id)?.changeCount || 1),
+          message: error.message || 'ซิงก์ข้อมูลไม่สำเร็จ',
+        };
+        if (requestId === saveSequenceRef.current) {
+          setSyncStatus((current) => createSyncStatusFromResult(result, current));
+        }
+        return result;
+      });
+  }
+
+  async function syncPendingState() {
+    if (!session || !isOnline) return;
+
+    const pendingRecord = getPendingSyncRecord(session.user.id);
+    if (!pendingRecord) {
+      setSyncStatus((current) => createSyncStatusFromResult({ ok: true }, current));
+      return;
+    }
+
+    const requestId = ++saveSequenceRef.current;
+    setSyncStatus((current) => ({
+      ...current,
+      status: 'syncing',
+      pendingCount: Number(pendingRecord.changeCount || current.pendingCount || 1),
+      message: 'กำลังซิงก์ข้อมูลที่รอส่งเข้า Google Sheets',
+      updatedAt: new Date().toISOString(),
+    }));
+
+    const syncSession = {
+      ...session,
+      endpoint: session.endpoint || pendingRecord.endpoint || DEFAULT_SHEET_ENDPOINT,
+      token: session.token || pendingRecord.token,
+    };
+
+    const result = await saveUserState(syncSession, pendingRecord.state, {
+      incrementPending: false,
+    });
+
+    if (requestId === saveSequenceRef.current) {
+      setSyncStatus((current) => createSyncStatusFromResult(result, current));
+    }
   }
 
   function handleLogout() {
@@ -2829,6 +3152,7 @@ export default function App() {
     setSession(null);
     setActivities([]);
     setPlots([]);
+    setSyncStatus(createInitialSyncStatus(null));
   }
 
   function renderActiveView() {
@@ -2915,6 +3239,7 @@ export default function App() {
       />
       <MobileHeader onLogout={handleLogout} setActiveView={navigateToView} />
       <main className="content">
+        <SyncStatusBanner isOnline={isOnline} onSyncNow={syncPendingState} syncStatus={syncStatus} />
         {renderActiveView()}
       </main>
       <BottomNav activeView={activeView} setActiveView={navigateToView} />
