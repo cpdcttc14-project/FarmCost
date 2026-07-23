@@ -219,7 +219,10 @@ function getPlotNumberFromLabel(plotLabel) {
 }
 
 const USER_STORAGE_KEY = 'farmcost:session:v3';
-const DEFAULT_SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzShwF8OHH_94wKJsds_VVhFNxAor-76fkRj8pMx_6UkgbAvjs_PqcnWUuJ8wq5aEvM/exec';
+const DEFAULT_SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwMnuhcgtYvXd0nOD0kHVrobN7DzbWxmFZ3_b5LWir9TePz64so4aXeuSxvYnZ0m_3F/exec';
+const LEGACY_SHEET_ENDPOINTS = new Set([
+  'https://script.google.com/macros/s/AKfycbzShwF8OHH_94wKJsds_VVhFNxAor-76fkRj8pMx_6UkgbAvjs_PqcnWUuJ8wq5aEvM/exec',
+]);
 const LOCAL_USERS_KEY = 'farmcost:localUsers:v3';
 const LOCAL_STATES_KEY = 'farmcost:localStates:v3';
 const PENDING_SYNC_KEY = 'farmcost:pendingSync:v1';
@@ -313,14 +316,29 @@ function getStoredSession() {
     const session = JSON.parse(stored);
     if (!session?.user?.id) return null;
 
-    return {
+    const migratedSession = {
       ...session,
-      endpoint: typeof session.endpoint === 'string' ? session.endpoint : DEFAULT_SHEET_ENDPOINT,
+      endpoint: normalizeSheetEndpoint(session.endpoint),
       mode: session.mode || (session.endpoint ? 'google-sheet' : 'local'),
     };
+
+    if (migratedSession.endpoint !== session.endpoint) {
+      window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(migratedSession));
+    }
+
+    return migratedSession;
   } catch {
     return null;
   }
+}
+
+function normalizeSheetEndpoint(endpoint) {
+  const cleanEndpoint = typeof endpoint === 'string' ? endpoint.trim() : '';
+  if (!cleanEndpoint || LEGACY_SHEET_ENDPOINTS.has(cleanEndpoint)) {
+    return DEFAULT_SHEET_ENDPOINT;
+  }
+
+  return cleanEndpoint;
 }
 
 function getStoredEndpoint() {
@@ -375,7 +393,7 @@ function setPendingSyncRecord(session, state, reason, options = {}) {
 
   pending[userId] = {
     userId,
-    endpoint: session.endpoint || DEFAULT_SHEET_ENDPOINT,
+    endpoint: normalizeSheetEndpoint(session.endpoint),
     token: session.token,
     state,
     queuedAt: current.queuedAt || now,
@@ -703,7 +721,7 @@ async function saveUserState(session, appState, options = {}) {
   states[session.user.id] = state;
   setLocalCollection(LOCAL_STATES_KEY, states);
 
-  const endpoint = session.endpoint || DEFAULT_SHEET_ENDPOINT;
+  const endpoint = normalizeSheetEndpoint(session.endpoint);
   if (!endpoint.trim()) {
     return { ok: true, localOnly: true };
   }
@@ -3254,7 +3272,7 @@ export default function App() {
 
     const syncSession = {
       ...session,
-      endpoint: session.endpoint || pendingRecord.endpoint || DEFAULT_SHEET_ENDPOINT,
+      endpoint: normalizeSheetEndpoint(session.endpoint || pendingRecord.endpoint),
       token: session.token || pendingRecord.token,
     };
 
