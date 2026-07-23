@@ -1,10 +1,10 @@
-const CACHE_NAME = 'farmcost-pwa-v6';
+const CACHE_NAME = 'farmcost-pwa-v13';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './assets/index-DYIJLjy9.js',
-  './assets/index-BCNY0v2f.css',
+  './assets/index-avKgz5Ui.js',
+  './assets/index-DGCm5-9w.css',
   './farmcost-logo.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -53,7 +53,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
+    caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
 
       return fetch(request).then((networkResponse) => {
