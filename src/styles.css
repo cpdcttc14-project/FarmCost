@@ -3097,7 +3097,7 @@ textarea {
 
   .mobile-brand strong {
     display: block;
-    color: #e9fff0;
+    color: #ffffff;
     font-size: 34px;
     line-height: 0.95;
   }
@@ -3106,7 +3106,7 @@ textarea {
     display: block;
     margin-top: 5px;
     overflow: hidden;
-    color: rgba(255, 255, 255, 0.86);
+    color: #ffffff;
     font-size: 12px;
     line-height: 1.35;
     text-overflow: ellipsis;
@@ -3569,23 +3569,84 @@ textarea {
     z-index: 10;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    min-height: 78px;
-    padding: 8px 10px max(8px, env(safe-area-inset-bottom));
-    border-top: 1px solid #edf0ef;
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 -12px 28px rgba(37, 48, 43, 0.08);
+    min-height: 88px;
+    padding: 9px 8px max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(180deg, var(--green-900), var(--green-950));
+    box-shadow: 0 -16px 32px rgba(4, 61, 38, 0.24);
     backdrop-filter: blur(14px);
   }
 
   .bottom-nav button {
+    position: relative;
     display: grid;
+    align-content: center;
     place-items: center;
-    gap: 3px;
+    gap: 5px;
+    min-height: 72px;
+    padding: 12px 8px 9px;
     border: 0;
-    color: #8b939d;
+    border-radius: 20px;
+    overflow: hidden;
+    color: #ffffff;
     background: transparent;
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 500;
+    transform: translateY(0) scale(1);
+    transition:
+      color 0.22s ease,
+      background 0.22s ease,
+      transform 0.22s ease;
+  }
+
+  .bottom-nav button::before {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    z-index: 2;
+    width: 34px;
+    height: 3px;
+    border-radius: 999px;
+    background: #f2ce55;
+    content: "";
+    opacity: 0;
+    transform: translateX(-50%) scaleX(0.28);
+    transform-origin: center;
+    transition:
+      opacity 0.22s ease,
+      transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .bottom-nav button::after {
+    position: absolute;
+    inset: 2px 5px 4px;
+    z-index: 0;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #ffffff, #ecf8f0);
+    content: "";
+    opacity: 0;
+    transform: scale(0.86);
+    transition:
+      opacity 0.22s ease,
+      transform 0.28s ease;
+  }
+
+  .bottom-nav button svg,
+  .bottom-nav button span {
+    position: relative;
+    z-index: 1;
+  }
+
+  .bottom-nav button svg {
+    width: 26px;
+    height: 26px;
+    transition:
+      color 0.22s ease,
+      transform 0.22s ease;
+  }
+
+  .bottom-nav button:active {
+    transform: translateY(1px) scale(0.97);
   }
 
   .bottom-nav button span {
@@ -3598,8 +3659,42 @@ textarea {
   }
 
   .bottom-nav button.active {
-    color: var(--green-800);
-    font-weight: 500;
+    color: var(--green-900);
+    font-weight: 600;
+    transform: translateY(0);
+  }
+
+  .bottom-nav button.active::before {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1);
+  }
+
+  .bottom-nav button.active::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .bottom-nav button.active svg {
+    animation: mobile-nav-pop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: translateY(-1px);
+  }
+
+  .bottom-nav button.active span {
+    font-weight: 600;
+  }
+}
+
+@keyframes mobile-nav-pop {
+  0% {
+    transform: translateY(2px) scale(0.88);
+  }
+
+  65% {
+    transform: translateY(-2px) scale(1.12);
+  }
+
+  100% {
+    transform: translateY(-1px) scale(1);
   }
 }
 
