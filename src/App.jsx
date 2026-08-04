@@ -75,6 +75,8 @@ const thaiDateFormatter = new Intl.DateTimeFormat('th-TH', {
   year: 'numeric',
 });
 
+const LOGIN_ACCOUNT_NOT_FOUND_MESSAGE = 'ไม่พบบัญชีของเบอร์นี้ กรุณาสมัครสมาชิกก่อน หรือใช้เบอร์ที่เคยสมัครไว้';
+
 function getTodayInputValue() {
   const now = new Date();
   const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -508,7 +510,7 @@ function userFriendlyAuthMessage(result, mode) {
 
   if (mode === 'login') {
     if (normalized.includes('not found') || normalized.includes('account')) {
-      return 'ไม่พบบัญชีของเบอร์นี้ กรุณาสมัครสมาชิกก่อน หรือใช้เบอร์ที่เคยสมัครไว้';
+      return LOGIN_ACCOUNT_NOT_FOUND_MESSAGE;
     }
 
     if (normalized.includes('inactive')) {
@@ -695,7 +697,7 @@ async function callLocalMembershipApi(action, payload) {
   if (action === 'login') {
     const record = users[phone];
     if (!record) {
-      return { ok: false, message: 'ไม่พบบัญชีของเบอร์นี้ กรุณาสมัครสมาชิกก่อน หรือใช้เบอร์ที่เคยสมัครไว้' };
+      return { ok: false, message: LOGIN_ACCOUNT_NOT_FOUND_MESSAGE };
     }
 
     const { pinHash, ...user } = record;
@@ -1090,6 +1092,7 @@ function LoginScreen({ onLogin }) {
   const [message, setMessage] = useState('');
   const [isRegistrationSuccessOpen, setRegistrationSuccessOpen] = useState(false);
   const [registrationFailure, setRegistrationFailure] = useState(null);
+  const [loginAlert, setLoginAlert] = useState(null);
 
   useEffect(() => {
     if (!isProvinceOpen) return undefined;
@@ -1118,6 +1121,7 @@ function LoginScreen({ onLogin }) {
   function updateField(key, value) {
     setMessage('');
     setRegistrationFailure(null);
+    setLoginAlert(null);
     setForm((current) => ({
       ...current,
       [key]: key === 'phone' ? normalizePhoneInput(value) : value,
@@ -1129,6 +1133,7 @@ function LoginScreen({ onLogin }) {
     setProvinceOpen(false);
     setMessage('');
     setRegistrationFailure(null);
+    setLoginAlert(null);
   }
 
   function chooseProvince(province) {
@@ -1179,7 +1184,15 @@ function LoginScreen({ onLogin }) {
           description: friendlyMessage,
         });
       } else {
-        setMessage(friendlyMessage);
+        setMessage('');
+        if (friendlyMessage === LOGIN_ACCOUNT_NOT_FOUND_MESSAGE) {
+          setLoginAlert({
+            title: 'เข้าสู่ระบบไม่สำเร็จ',
+            description: LOGIN_ACCOUNT_NOT_FOUND_MESSAGE,
+          });
+        } else {
+          setMessage(friendlyMessage);
+        }
       }
       setIsSubmitting(false);
       return;
@@ -1332,6 +1345,13 @@ function LoginScreen({ onLogin }) {
           description={registrationFailure.description}
           title={registrationFailure.title}
           onClose={() => setRegistrationFailure(null)}
+        />
+      )}
+      {loginAlert && (
+        <ValidationAlertModal
+          description={loginAlert.description}
+          title={loginAlert.title}
+          onClose={() => setLoginAlert(null)}
         />
       )}
     </main>
