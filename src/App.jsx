@@ -887,12 +887,14 @@ function getPlotExpenseRows(activities) {
         plot,
         labor: 0,
         material: 0,
+        rent: 0,
         total: 0,
       };
     }
 
     collection[plot].labor += Number(activity.labor || 0);
     collection[plot].material += materialTotal(activity);
+    collection[plot].rent += Number(activity.plotRentExpense || 0);
     collection[plot].total += totalCost(activity);
     return collection;
   }, {});
@@ -1479,11 +1481,12 @@ function PlotExpenseBarChart({ activities, onShowAll }) {
       <div className="panel-heading">
         <div>
           <h2>สัดส่วนค่าใช้จ่ายสะสม</h2>
-          <p>เปรียบเทียบค่าแรง/ค่าจ้างและค่าวัสดุของแต่ละแปลงเพาะปลูก</p>
+          <p>เปรียบเทียบค่าแรง/ค่าจ้าง ค่าวัสดุ และค่าเช่าของแต่ละแปลงเพาะปลูก</p>
         </div>
         <div className="chart-legend" aria-label="คำอธิบายกราฟแท่ง">
           <span className="bar-key labor">ค่าแรง/ค่าจ้าง</span>
           <span className="bar-key material">ค่าวัสดุ</span>
+          <span className="bar-key rent">ค่าเช่า</span>
         </div>
       </div>
 
@@ -1492,6 +1495,7 @@ function PlotExpenseBarChart({ activities, onShowAll }) {
           {rows.map((row) => {
             const laborPercent = (row.labor / maxValue) * 100;
             const materialPercent = (row.material / maxValue) * 100;
+            const rentPercent = (row.rent / maxValue) * 100;
             return (
               <div className="plot-bar-row" key={row.plot}>
                 <div className="plot-bar-label">
@@ -1501,10 +1505,12 @@ function PlotExpenseBarChart({ activities, onShowAll }) {
                 <div className="stacked-bar">
                   <span className="labor" style={{ width: `${laborPercent}%` }} />
                   <span className="material" style={{ width: `${materialPercent}%` }} />
+                  <span className="rent" style={{ width: `${rentPercent}%` }} />
                 </div>
                 <div className="plot-bar-values">
                   <span>ค่าแรง/ค่าจ้าง {decimalBaht.format(row.labor)}</span>
                   <span>วัสดุ {decimalBaht.format(row.material)}</span>
+                  <span>ค่าเช่า {decimalBaht.format(row.rent)}</span>
                 </div>
               </div>
             );

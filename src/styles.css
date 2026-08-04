@@ -1456,6 +1456,10 @@ button {
   background: var(--gold);
 }
 
+.bar-key.rent::before {
+  background: #cbd5d1;
+}
+
 .plot-bars {
   display: grid;
   gap: 16px;
@@ -1470,6 +1474,7 @@ button {
 .plot-bar-label,
 .plot-bar-values {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1511,6 +1516,10 @@ button {
 
 .stacked-bar .material {
   background: linear-gradient(90deg, #f4c84d, #d69b00);
+}
+
+.stacked-bar .rent {
+  background: linear-gradient(90deg, #d7dfdc, #b9c6c0);
 }
 
 .line-key::before {
